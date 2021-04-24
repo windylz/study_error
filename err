@@ -1,0 +1,93 @@
+//author:云
+//学号:G20210607020360
+//description:使用的pkg/error的warp,cause;errors.Is,errors.New;panic;
+package main
+
+import (
+	"database/sql"
+	"fmt"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/pkg/errors"
+	yerrors "errors"
+)
+
+type info struct {
+	id   int    `db:"id"`
+	name string `db:"name"`
+	age  string `db:"age"`
+}
+
+var db *sql.DB
+
+//连接数据库
+func _db() error {
+	var err  error
+	db, err = sql.Open("mysql", "root:123456@tcp(127.0.0.1:3306)/maoda?charset=utf8")
+	if err != nil {
+		return errors.Wrap(err, "err: mysql open")
+	}
+	err1 := db.Ping()
+	if err1 != nil {
+		return errors.Wrap(err1, "err: mysql ping")
+	}
+	return nil
+}
+
+func main() {
+	err := _db()
+	if err != nil {
+		fmt.Println(err)
+		fmt.Println(errors.Cause(err))
+		panic("err: db'connection fail")
+	}
+
+	infos, err2 := getuserlistIs()
+	//infos, err2 := getuserlist()
+	if err != nil {
+		fmt.Println("hh %v", err2)
+	}
+	fmt.Println("success", infos)
+}
+
+func _selectbook() ([]info, error) {
+	rows, err := db.Query("SELECT * FROM user")
+	if err != nil {
+		return nil, errors.Wrap(err, "err :sql query")
+	}
+	var infos  []info
+	defer rows.Close()
+	//遍历打印
+	for rows.Next() {
+		var s info
+		err = rows.Scan(&s.id, &s.name, &s.age)
+		fmt.Println(s)
+		infos = append(infos,s)
+	}
+	//用完关闭
+	return infos, nil
+}
+
+func getuserlist() ([]info, error) {
+	infos, err := _selectbook()
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, nil
+		} else {
+			return nil, err
+		}
+	}
+	return infos, nil
+}
+
+func getuserlistIs() ([]info, error) {
+	infos, err := _selectbook()
+	if err != nil {
+		if yerrors.Is(err,sql.ErrNoRows) {
+			return nil, nil
+		} else {
+			return nil, err
+		}
+	}
+	return infos, nil
+}
+
